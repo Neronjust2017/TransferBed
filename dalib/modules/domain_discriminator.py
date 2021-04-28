@@ -2,6 +2,7 @@ from typing import List, Dict
 import torch.nn as nn
 
 __all__ = ['DomainDiscriminator']
+# __all__ = ['DomainDiscriminator', 'MultiSourceDomainDiscriminator']
 
 
 class DomainDiscriminator(nn.Sequential):
@@ -48,5 +49,50 @@ class DomainDiscriminator(nn.Sequential):
 
     def get_parameters(self) -> List[Dict]:
         return [{"params": self.parameters(), "lr": 1.}]
+
+# class MultiSourceDomainDiscriminator(nn.Sequential):
+#     r"""Domain discriminator model from
+#     `"Domain-Adversarial Training of Neural Networks" (ICML 2015) <https://arxiv.org/abs/1505.07818>`_
+#
+#     Distinguish whether the input features come from the source domain or the target domain.
+#     The source domain label is 1 and the target domain label is 0.
+#
+#     Args:
+#         in_feature (int): dimension of the input feature
+#         hidden_size (int): dimension of the hidden features
+#         batch_norm (bool): whether use :class:`~torch.nn.BatchNorm1d`.
+#             Use :class:`~torch.nn.Dropout` if ``batch_norm`` is False. Default: True.
+#
+#     Shape:
+#         - Inputs: (minibatch, `in_feature`)
+#         - Outputs: :math:`(minibatch, 1)`
+#     """
+#
+#     def __init__(self, in_feature: int, hidden_size: int, num_domains: int, batch_norm=True):
+#         if batch_norm:
+#             super(MultiSourceDomainDiscriminator, self).__init__(
+#                 nn.Linear(in_feature, hidden_size),
+#                 nn.BatchNorm1d(hidden_size),
+#                 nn.ReLU(),
+#                 nn.Linear(hidden_size, hidden_size),
+#                 nn.BatchNorm1d(hidden_size),
+#                 nn.ReLU(),
+#                 nn.Linear(hidden_size, num_domains),
+#                 nn.Softmax(dim=1)
+#             )
+#         else:
+#             super(MultiSourceDomainDiscriminator, self).__init__(
+#                 nn.Linear(in_feature, hidden_size),
+#                 nn.ReLU(inplace=True),
+#                 nn.Dropout(0.5),
+#                 nn.Linear(hidden_size, hidden_size),
+#                 nn.ReLU(inplace=True),
+#                 nn.Dropout(0.5),
+#                 nn.Linear(hidden_size, 1),
+#                 nn.Softmax(dim=1)
+#             )
+#
+#     def get_parameters(self) -> List[Dict]:
+#         return [{"params": self.parameters(), "lr": 1.}]
 
 

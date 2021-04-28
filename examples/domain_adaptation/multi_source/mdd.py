@@ -100,6 +100,7 @@ def main(args: argparse.Namespace):
     # create model
     print("=> using pre-trained model '{}'".format(args.arch))
     backbone = models.__dict__[args.arch](pretrained=True).to(device)
+    global  num_classes
     num_classes = val_dataset.num_classes
     classifier = ImageClassifier(backbone, num_classes, bottleneck_dim=args.bottleneck_dim,
                                  width=args.bottleneck_dim).to(device)
@@ -244,12 +245,13 @@ def validate(val_loader: DataLoader, model: ImageClassifier, args: argparse.Name
             loss = F.cross_entropy(output, target)
 
             # measure accuracy and record loss
-            acc1, acc5 = accuracy(output, target, topk=(1, 5))
+            k = min(num_classes, 5)
+            acc1, acck = accuracy(output, target, topk=(1, k))
             if confmat:
                 confmat.update(target, output.argmax(1))
             losses.update(loss.item(), images.size(0))
             top1.update(acc1.item(), images.size(0))
-            top5.update(acc5.item(), images.size(0))
+            top5.update(acck.item(), images.size(0))
 
             # measure elapsed time
             batch_time.update(time.time() - end)
