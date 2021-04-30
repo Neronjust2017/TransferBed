@@ -1,6 +1,5 @@
 from torch.utils.data.dataloader import DataLoader
 
-
 class ForeverDataIterator:
     r"""A data iterator that will never stop producing data"""
     def __init__(self, data_loader: DataLoader):
@@ -17,5 +16,4 @@ class ForeverDataIterator:
 
     def __len__(self):
         return len(self.data_loader)
-
 
