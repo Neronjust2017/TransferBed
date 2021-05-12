@@ -27,7 +27,9 @@ from common.utils.metric import accuracy, ConfusionMatrix
 from common.utils.meter import AverageMeter, ProgressMeter
 from common.utils.logger import CompleteLogger
 from common.utils.analysis import collect_feature, tsne, a_distance
+import os
 
+os.environ["CUDA_VISIBLE_DEVICES"]="3"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -198,9 +200,13 @@ def train(train_source_iters: list, train_target_iter: ForeverDataIterator,
 
         x_ss = [next(train_source_iter)[0] for train_source_iter in train_source_iters]
         labels_ss = [next(train_source_iter)[1] for train_source_iter in train_source_iters]
+        sz = [next(train_source_iter)[0].shape[0] for train_source_iter in train_source_iters]
+
+        # print(sz)
 
         x_t, _ = next(train_target_iter)
 
+        # print(x_t.shape[0])
         x_ss = torch.cat(x_ss, dim=0)
         labels_ss = torch.cat(labels_ss, dim=0)
 
@@ -224,8 +230,8 @@ def train(train_source_iters: list, train_target_iter: ForeverDataIterator,
         y_t = y[-1]
         f_t = f[-1]
 
-        transfer_losses = 0
-        cls_losses = 0
+        transfer_losses = torch.tensor(0.0).to(device)
+        cls_losses = torch.tensor(0.0).to(device)
 
         for y_s, labels_s, f_s, domain_adv in zip(y_ss, labels_ss, f_ss, domain_advs):
             cls_loss = F.cross_entropy(y_s, labels_s)
@@ -235,7 +241,8 @@ def train(train_source_iters: list, train_target_iter: ForeverDataIterator,
 
         cls_losses /= (num_domains-1)
         transfer_losses /= (num_domains-1)
-        loss = cls_losses + transfer_losses * args.trade_off
+        # loss = cls_losses + transfer_losses * args.trade_off
+        loss = cls_losses
 
         domain_acces = [domain_adv.domain_discriminator_accuracy for domain_adv in domain_advs]
         cls_acces = [accuracy(y_s, labels_s)[0] for y_s, labels_s in zip(y_ss, labels_ss)]

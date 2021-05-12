@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+source /DATASET/wyh/Code/TransferBed/env/bin/activate
+
 # Office31
 CUDA_VISIBLE_DEVICES=1 python jan.py data/office31 -d Office31 -s D -t A -a resnet50 --epochs 20 --seed 0 --log logs/jan/Office31_D2A
 CUDA_VISIBLE_DEVICES=1 python jan.py data/office31 -d Office31 -s W -t A -a resnet50 --epochs 20 --seed 0 --log logs/jan/Office31_W2A
