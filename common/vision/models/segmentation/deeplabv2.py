@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 from torchvision.models.utils import load_state_dict_from_url
 
@@ -79,10 +80,10 @@ class ASPP_V2(nn.Module):
 
 
 class ResNet(nn.Module):
-    def __init__(self, block, layers):
+    def __init__(self, block, layers, in_channels=3):
         self.inplanes = 64
         super(ResNet, self).__init__()
-        self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
+        self.conv1 = nn.Conv2d(in_channels, 64, kernel_size=7, stride=2, padding=3,
                                bias=False)
         self.bn1 = nn.BatchNorm2d(64, affine=affine_par)
         for i in self.bn1.parameters():
@@ -172,17 +173,19 @@ class Deeplab(nn.Module):
         ]
 
 
-def deeplabv2_resnet101(num_classes=19, pretrained_backbone=True):
+def deeplabv2_resnet101(num_classes=19, pretrained_backbone=False):
     """Constructs a DeepLabV2 model with a ResNet-101 backbone.
 
      Args:
          num_classes (int, optional): number of classes. Default: 19
          pretrained_backbone (bool, optional): If True, returns a model pre-trained on ImageNet. Default: True.
      """
-    backbone = ResNet(Bottleneck, [3, 4, 23, 3])
+    backbone = ResNet(Bottleneck, [3, 4, 23, 3], in_channels=1)
     if pretrained_backbone:
         # download from Internet
-        saved_state_dict = load_state_dict_from_url(model_urls['deeplabv2_resnet101'], map_location=lambda storage, loc: storage, file_name="deeplabv2_resnet101.pth")
+        cached_file = '/home/weiyuhua/.cache/torch/checkpoints/deeplab_init.pth'
+        saved_state_dict = torch.load(cached_file, map_location=lambda storage, loc: storage)
+        # saved_state_dict = load_state_dict_from_url(model_urls['deeplabv2_resnet101'], map_location=lambda storage, loc: storage)
         new_params = backbone.state_dict().copy()
         for i in saved_state_dict:
             i_parts = i.split('.')

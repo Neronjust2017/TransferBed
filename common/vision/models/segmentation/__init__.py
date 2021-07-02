@@ -1,3 +1,3 @@
 from .deeplabv2 import *
-
-__all__ = ['deeplabv2']
+from .unet import *
+__all__ = ['deeplabv2', 'unet']

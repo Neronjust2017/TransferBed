@@ -26,6 +26,24 @@ def wrapper(transform: ClassVar):
             return image, label
     return WrapperTransform
 
+def wrapper2(transform: ClassVar):
+    """ Wrap a transform for classification to a transform for segmentation.
+    Note that the segmentation label will keep the same before and after wrapper.
+
+    Args:
+        transform (class, callable): transform for classification
+
+    Returns:
+        transform for segmentation
+    """
+    class WrapperTransform(transform):
+        def __call__(self, image, label):
+            image = super().__call__(image)
+            label = super().__call__(label)
+            return image, label
+    return WrapperTransform
+
+ToTensor2 = wrapper2(T.ToTensor)
 
 ColorJitter = wrapper(T.ColorJitter)
 Normalize = wrapper(T.Normalize)
