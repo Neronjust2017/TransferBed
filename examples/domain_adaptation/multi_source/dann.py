@@ -207,7 +207,8 @@ def train(train_source_iter: ForeverDataIterator, train_target_iter: ForeverData
         cls_loss = F.cross_entropy(y_s, labels_s)
         transfer_loss = domain_adv(f_s, f_t)
         domain_acc = domain_adv.domain_discriminator_accuracy
-        loss = cls_loss + transfer_loss * args.trade_off
+        # loss = cls_loss + transfer_loss * args.trade_off
+        loss = cls_loss
 
         cls_acc = accuracy(y_s, labels_s)[0]
 

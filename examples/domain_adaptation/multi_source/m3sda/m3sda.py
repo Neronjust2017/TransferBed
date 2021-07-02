@@ -22,6 +22,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 
+os.environ["CUDA_VISIBLE_DEVICES"]="0"
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
@@ -87,10 +89,29 @@ def main(args: argparse.Namespace):
     source_dataloader_list = []
     source_clf = {}
     source_loss = {}
-    extractor = feature_extractor().to(device)
+
+    # create model
+    print("=> using pre-trained model '{}'".format(args.arch))
+    backbone = models.__dict__[args.arch](pretrained=True).to(device)
+    extractor = feature_extractor(backbone).to(device)
     # extractor.load_state_dict(torch.load('./model/2'+target_domain+'/extractor_5.pth'))
     extractor_optim = optim.Adam(extractor.parameters(), lr=3e-4)
     min_ = float('inf')
+
+    train_target_dataset = dataset(root=args.root, task=args.target, download=True, transform=train_transform)
+    train_target_loader = DataLoader(train_target_dataset, batch_size=args.batch_size,
+                                     shuffle=True, num_workers=args.workers, drop_last=True)
+    val_dataset = dataset(root=args.root, task=args.target, download=True, transform=val_transform)
+    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers)
+
+    global num_classes
+    num_classes = val_dataset.num_classes
+
+    if args.data == 'DomainNet':
+        test_dataset = dataset(root=args.root, task=args.target, split='test', download=True, transform=val_transform)
+        test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers)
+    else:
+        test_loader = val_loader
 
     for source in source_domain:
         train_source_dataset = dataset(root=args.root, task=source, download=True, transform=train_transform)
@@ -102,24 +123,12 @@ def main(args: argparse.Namespace):
         # c1 : for target
         # c2 : for source
         source_clf[source] = {}
-        source_clf[source]['c1'] = predictor().to(device)
-        source_clf[source]['c2'] = predictor().to(device)
+        source_clf[source]['c1'] = predictor(num_classes).to(device)
+        source_clf[source]['c2'] = predictor(num_classes).to(device)
         # source_clf[source]['c1'].load_state_dict(torch.load('./model/2'+target_domain+'/'+source+'_c1_5.pth'))
         # source_clf[source]['c2'].load_state_dict(torch.load('./model/2'+target_domain+'/'+source+'_c2_5.pth'))
         source_clf[source]['optim'] = optim.Adam(
             list(source_clf[source]['c1'].parameters()) + list(source_clf[source]['c2'].parameters()), lr=3e-4)
-
-    train_target_dataset = dataset(root=args.root, task=args.target, download=True, transform=train_transform)
-    train_target_loader = DataLoader(train_target_dataset, batch_size=args.batch_size,
-                                     shuffle=True, num_workers=args.workers, drop_last=True)
-    val_dataset = dataset(root=args.root, task=args.target, download=True, transform=val_transform)
-    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers)
-
-    if args.data == 'DomainNet':
-        test_dataset = dataset(root=args.root, task=args.target, split='test', download=True, transform=val_transform)
-        test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers)
-    else:
-        test_loader = val_loader
 
     if len(train_target_loader) < min_:
         min_ = len(train_target_loader)
@@ -401,7 +410,11 @@ def main(args: argparse.Namespace):
             print('eval loss c1 : [%.4f]' % (eval_loss[source]['c1']))
             print('eval loss c2 : [%.4f]' % (eval_loss[source]['c2']))
 
-        print('Combine Ac : [%.4f]' % (fianl_ac / BATCH_SIZE / len(val_loader)))
+        combine_acc = fianl_ac / BATCH_SIZE / len(val_loader)
+
+        best_acc1 = max(combine_acc, best_acc1)
+
+        print('Combine Ac : [%.4f]' % combine_acc)
 
         torch.save(extractor.state_dict(), './model/' + target_domain + '/extractor' + '_' + str(ep) + '.pth')
         for source in source_domain:
@@ -411,6 +424,7 @@ def main(args: argparse.Namespace):
                        './model/' + target_domain + '/' + source + '_c2_' + str(ep) + '.pth')
 
     ###
+    print("best acc", best_acc1)
 
     ep_list = [i for i in range(EP)]
 
@@ -499,7 +513,7 @@ if __name__ == '__main__':
                         help='seed for initializing training. ')
     parser.add_argument('--per-class-eval', action='store_true',
                         help='whether output per-class accuracy during evaluation')
-    parser.add_argument("--log", type=str, default='dann',
+    parser.add_argument("--log", type=str, default='m3sda',
                         help="Where to save logs, checkpoints and debugging images.")
     parser.add_argument("--phase", type=str, default='train', choices=['train', 'test', 'analysis'],
                         help="When phase is 'test', only test the model."

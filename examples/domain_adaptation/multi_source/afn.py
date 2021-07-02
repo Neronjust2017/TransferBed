@@ -304,8 +304,7 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--data', metavar='DATA', default='Office31',
                         help='dataset: ' + ' | '.join(dataset_names) +
                              ' (default: Office31)')
-    parser.add_argument('-s', '--sources', nargs='+', default=None,
-                        help='source domain(s). Use all domains except the target domain if set None')
+    parser.add_argument('-s', '--source', help='source domain(s)')
     parser.add_argument('-t', '--target', help='target domain(s)')
     parser.add_argument('--center-crop', default=False, action='store_true',
                         help='whether use center crop during training')

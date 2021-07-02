@@ -24,12 +24,17 @@ from common.utils.data import ForeverDataIterator
 from common.utils.metric import accuracy, ConfusionMatrix
 from common.utils.meter import AverageMeter, ProgressMeter
 from common.utils.logger import CompleteLogger
+from torch.utils.tensorboard import SummaryWriter
+import os
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def main(args: argparse.Namespace):
     logger = CompleteLogger(args.log, args.phase)
+
+    writer = SummaryWriter(args.log)
+
     print(args)
 
     if args.seed is not None:
@@ -124,22 +129,25 @@ def main(args: argparse.Namespace):
     for epoch in range(args.epochs):
         # train for one epoch
         train(train_source_iter, train_target_iter, classifier, mdd, optimizer,
-              lr_scheduler, epoch, args)
+              lr_scheduler, epoch, args, writer)
 
         # evaluate on validation set
-        acc1 = validate(val_loader, classifier, args)
+        acc1, acc5 = validate(val_loader, classifier, args)
+        writer.add_scalar('val_acc1', acc1, epoch)
+        writer.add_scalar('val_acc5', acc5, epoch)
 
         # remember best acc@1 and save checkpoint
         torch.save(classifier.state_dict(), logger.get_checkpoint_path('latest'))
         if acc1 > best_acc1:
             shutil.copy(logger.get_checkpoint_path('latest'), logger.get_checkpoint_path('best'))
         best_acc1 = max(acc1, best_acc1)
+        writer.add_scalar('best_acc1', best_acc1, epoch)
 
     print("best_acc1 = {:3.1f}".format(best_acc1))
 
     # evaluate on test set
     classifier.load_state_dict(torch.load(logger.get_checkpoint_path('best')))
-    acc1 = validate(test_loader, classifier, args)
+    acc1, acc5 = validate(test_loader, classifier, args)
     print("test_acc1 = {:3.1f}".format(acc1))
 
     logger.close()
@@ -147,7 +155,7 @@ def main(args: argparse.Namespace):
 
 def train(train_source_iter: ForeverDataIterator, train_target_iter: ForeverDataIterator,
           classifier: ImageClassifier, mdd: MarginDisparityDiscrepancy, optimizer: SGD,
-          lr_scheduler: LambdaLR, epoch: int, args: argparse.Namespace):
+          lr_scheduler: LambdaLR, epoch: int, args: argparse.Namespace, writer: torch.utils.tensorboard.SummaryWriter):
     batch_time = AverageMeter('Time', ':3.1f')
     data_time = AverageMeter('Data', ':3.1f')
     losses = AverageMeter('Loss', ':3.2f')
@@ -215,6 +223,10 @@ def train(train_source_iter: ForeverDataIterator, train_target_iter: ForeverData
         if i % args.print_freq == 0:
             progress.display(i)
 
+    writer.add_scalar('loss', losses.avg, epoch)
+    writer.add_scalar('trans_loss', trans_losses.avg, epoch)
+    writer.add_scalar('cls_acc', cls_accs.avg, epoch)
+    writer.add_scalar('tgt_acc', tgt_accs.avg, epoch)
 
 def validate(val_loader: DataLoader, model: ImageClassifier, args: argparse.Namespace) -> float:
     batch_time = AverageMeter('Time', ':6.3f')
@@ -265,7 +277,7 @@ def validate(val_loader: DataLoader, model: ImageClassifier, args: argparse.Name
         if confmat:
             print(confmat.format(classes))
 
-    return top1.avg
+    return top1.avg, top5.avg
 
 
 if __name__ == '__main__':
@@ -283,6 +295,7 @@ if __name__ == '__main__':
     # dataset parameters
     parser.add_argument('root', metavar='DIR',
                         help='root path of dataset')
+    parser.add_argument('--gpu-id', default='0', type=str)
     parser.add_argument('-d', '--data', metavar='DATA', default='Office31',
                         help='dataset: ' + ' | '.join(dataset_names) +
                              ' (default: Office31)')
@@ -329,5 +342,9 @@ if __name__ == '__main__':
     parser.add_argument("--phase", type=str, default='train', choices=['train', 'test'],
                         help="When phase is 'test', only test the model.")
     args = parser.parse_args()
+
+    os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu_id
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     main(args)
 

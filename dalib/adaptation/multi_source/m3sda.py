@@ -3,6 +3,7 @@ import torch.nn as nn
 import numpy as np
 import torchvision.models as models
 from torch.autograd import Function
+from typing import Optional
 
 class GradReverse(Function):
     @staticmethod
@@ -29,14 +30,21 @@ class Identity(nn.Module):
 
 class feature_extractor(nn.Module):
 
-    def __init__(self):
+    def __init__(self, backbone: nn.Module, bottleneck_dim: Optional[int] = 2048):
         super(feature_extractor, self).__init__()
 
-        self.cnn = models.resnet101(pretrained=True)
-        self.cnn.fc = Identity()
+        self.backbone = backbone
+
+        self.bottleneck = nn.Sequential(
+            nn.AdaptiveAvgPool2d(output_size=(1, 1)),
+            nn.Flatten(),
+            nn.Linear(backbone.out_features, bottleneck_dim),
+            nn.BatchNorm1d(bottleneck_dim),
+            nn.ReLU()
+        )
 
         self.fc = nn.Sequential(
-            nn.Linear(2048, 4096),
+            nn.Linear(bottleneck_dim, 4096),
             nn.BatchNorm1d(4096),
             nn.ReLU(True),
             nn.Dropout(0.5),
@@ -44,8 +52,8 @@ class feature_extractor(nn.Module):
 
     def forward(self, x):
         with torch.no_grad():
-            feature = self.cnn(x)
-        feature = feature.view(x.size(0), -1)
+            feature = self.backbone(x)
+        feature = self.bottleneck(feature)
         feature = self.fc(feature)
 
         return feature
@@ -53,15 +61,15 @@ class feature_extractor(nn.Module):
 
 class predictor(nn.Module):
 
-    def __init__(self):
+    def __init__(self, num_classes):
         super(predictor, self).__init__()
-
+        self.num_classes = num_classes
         self.fc = nn.Sequential(
             nn.Linear(4096, 2048),
             nn.BatchNorm1d(2048),
             nn.ReLU(True),
             nn.Dropout(0.5),
-            nn.Linear(2048, 345)
+            nn.Linear(2048, self.num_classes)
         )
 
     def forward(self, feature, reverse=False):
